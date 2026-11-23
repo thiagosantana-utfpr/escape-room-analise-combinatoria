@@ -1,0 +1,1832 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Operação Cofre Central — Escape Room Combinatório</title>
+    <style>
+:root {
+    --bg-dark: #050811;
+    --bg-panel: #0b1120;
+    --card-bg: rgba(13, 20, 38, 0.88);
+    --border-color: #1e293b;
+    --accent: #00f0ff;
+    --accent-glow: rgba(0, 240, 255, 0.45);
+    --accent-hover: #00c8d6;
+    --success: #10b981;
+    --success-glow: rgba(16, 185, 129, 0.45);
+    --danger: #ef4444;
+    --danger-glow: rgba(239, 68, 68, 0.45);
+    --warning: #f59e0b;
+    --combo-color: #a855f7;
+    --text-main: #f8fafc;
+    --text-muted: #94a3b8;
+}
+
+* {
+    box-sizing: border-box;
+    margin: 0;
+    padding: 0;
+    font-family: 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+}
+
+body {
+    background-color: var(--bg-dark);
+    color: var(--text-main);
+    min-height: 100vh;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    overflow-x: hidden;
+    position: relative;
+    transition: box-shadow 0.5s ease;
+}
+
+/* Modo Pânico nos últimos 2 minutos */
+body.panic-mode {
+    animation: panicBorder 1.2s infinite alternate;
+}
+
+@keyframes panicBorder {
+    from { box-shadow: inset 0 0 25px rgba(239, 68, 68, 0.15); }
+    to { box-shadow: inset 0 0 70px rgba(239, 68, 68, 0.55); }
+}
+
+/* Canvas de Fundo (Matrix Matemática) e Partículas */
+#matrix-canvas, #particles-canvas {
+    position: fixed;
+    inset: 0;
+    width: 100%;
+    height: 100%;
+    pointer-events: none;
+}
+
+#matrix-canvas {
+    z-index: -3;
+    opacity: 0.28;
+}
+
+#particles-canvas {
+    z-index: 200;
+}
+
+.background-grid {
+    position: fixed;
+    inset: 0;
+    background-image: 
+        radial-gradient(circle at 50% 20%, rgba(0, 240, 255, 0.1), transparent 65%),
+        linear-gradient(to right, rgba(0, 240, 255, 0.04) 1px, transparent 1px),
+        linear-gradient(to bottom, rgba(0, 240, 255, 0.04) 1px, transparent 1px);
+    background-size: 100% 100%, 40px 40px, 40px 40px;
+    z-index: -2;
+}
+
+.scanline {
+    position: fixed;
+    inset: 0;
+    background: linear-gradient(to bottom, transparent 50%, rgba(0, 0, 0, 0.28) 51%);
+    background-size: 100% 4px;
+    pointer-events: none;
+    z-index: -1;
+}
+
+/* Overlay de Transição de Sala */
+.room-transition-overlay {
+    position: fixed;
+    inset: 0;
+    background: rgba(5, 8, 17, 0.94);
+    z-index: 150;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    text-align: center;
+    padding: 20px;
+    backdrop-filter: blur(8px);
+    animation: fadeIn 0.25s ease;
+}
+
+.unlock-big-icon {
+    font-size: 4.5rem;
+    margin-bottom: 16px;
+    animation: unlockPop 0.7s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+}
+
+@keyframes unlockPop {
+    0% { transform: scale(0.3) rotate(-25deg); opacity: 0; }
+    60% { transform: scale(1.25) rotate(10deg); opacity: 1; }
+    100% { transform: scale(1) rotate(0deg); opacity: 1; }
+}
+
+.transition-title {
+    font-size: 1.8rem;
+    font-weight: 900;
+    color: var(--success);
+    letter-spacing: 2px;
+    text-transform: uppercase;
+    text-shadow: 0 0 20px var(--success-glow);
+}
+
+.transition-sub {
+    font-size: 1.1rem;
+    color: var(--accent);
+    margin-top: 8px;
+    font-family: monospace;
+}
+
+/* HUD Superior */
+.hud-bar {
+    position: fixed;
+    top: 0;
+    width: 100%;
+    background: rgba(8, 12, 24, 0.94);
+    border-bottom: 1px solid #1e293b;
+    padding: 10px 24px;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 14px;
+    z-index: 100;
+    backdrop-filter: blur(12px);
+    box-shadow: 0 4px 25px rgba(0, 0, 0, 0.7);
+}
+
+.hud-group {
+    display: flex;
+    align-items: center;
+    gap: 20px;
+    flex-wrap: wrap;
+}
+
+.hud-item {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 3px;
+}
+
+.hud-label {
+    font-size: 0.66rem;
+    letter-spacing: 1.2px;
+    color: var(--text-muted);
+    font-weight: 700;
+}
+
+.hud-value {
+    font-size: 0.98rem;
+    font-weight: 800;
+    color: var(--accent);
+}
+
+.hud-value.danger { color: var(--danger); }
+.hud-value.warning { color: var(--warning); font-family: monospace; font-size: 1.15rem; }
+.hud-value.panic-text {
+    color: var(--danger);
+    animation: pulseDanger 0.7s infinite alternate;
+}
+
+@keyframes pulseDanger {
+    from { transform: scale(1); text-shadow: 0 0 5px var(--danger); }
+    to { transform: scale(1.12); text-shadow: 0 0 18px var(--danger); }
+}
+
+/* Selo de Combo / Sequência */
+.combo-badge {
+    background: linear-gradient(135deg, rgba(168, 85, 247, 0.2), rgba(0, 240, 255, 0.2));
+    border: 1px solid var(--combo-color);
+    color: #e9d5ff;
+    padding: 4px 10px;
+    border-radius: 999px;
+    font-size: 0.78rem;
+    font-weight: 800;
+    letter-spacing: 0.8px;
+    box-shadow: 0 0 12px rgba(168, 85, 247, 0.4);
+    animation: bounceIn 0.35s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+}
+
+@keyframes bounceIn {
+    0% { transform: scale(0.5); opacity: 0; }
+    100% { transform: scale(1); opacity: 1; }
+}
+
+.progress-wrapper {
+    width: 130px;
+    height: 8px;
+    background: #1e293b;
+    border-radius: 999px;
+    overflow: hidden;
+    border: 1px solid #334155;
+}
+
+.progress-bar {
+    height: 100%;
+    background: linear-gradient(90deg, var(--accent), var(--success));
+    box-shadow: 0 0 12px var(--accent-glow);
+    transition: width 0.5s cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+/* Controles de Áudio e Volume */
+.audio-controls {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    background: #111827;
+    padding: 6px 12px;
+    border-radius: 8px;
+    border: 1px solid #334155;
+}
+
+.btn-audio {
+    background: transparent;
+    color: var(--text-main);
+    border: none;
+    cursor: pointer;
+    font-weight: 700;
+    font-size: 0.85rem;
+    display: flex;
+    align-items: center;
+    gap: 5px;
+    transition: color 0.2s;
+}
+
+.btn-audio:hover { color: var(--accent); }
+
+.volume-slider {
+    width: 75px;
+    accent-color: var(--accent);
+    cursor: pointer;
+}
+
+/* Container Principal */
+.container {
+    width: 100%;
+    max-width: 900px;
+    padding: 92px 20px 40px;
+    z-index: 10;
+}
+
+/* Painel Visual das 5 Salas e Cadeados */
+.vault-map {
+    display: grid;
+    grid-template-columns: repeat(5, 1fr);
+    gap: 10px;
+    margin-bottom: 18px;
+}
+
+@media (max-width: 700px) {
+    .vault-map { grid-template-columns: repeat(2, 1fr); }
+}
+
+.vault-node {
+    background: rgba(13, 19, 34, 0.92);
+    border: 1px solid #1e293b;
+    border-radius: 12px;
+    padding: 12px 10px;
+    text-align: center;
+    transition: all 0.4s cubic-bezier(0.22, 1, 0.36, 1);
+    position: relative;
+    overflow: hidden;
+}
+
+.vault-node.locked {
+    opacity: 0.5;
+}
+
+.vault-node.active {
+    border-color: var(--accent);
+    box-shadow: 0 0 22px var(--accent-glow), inset 0 0 12px rgba(0, 240, 255, 0.12);
+    background: rgba(0, 240, 255, 0.08);
+    transform: translateY(-3px);
+    opacity: 1;
+}
+
+.vault-node.unlocked {
+    border-color: var(--success);
+    box-shadow: 0 0 16px var(--success-glow);
+    background: rgba(16, 185, 129, 0.12);
+    opacity: 1;
+}
+
+.vault-icon {
+    font-size: 1.55rem;
+    margin-bottom: 4px;
+    display: block;
+    transition: transform 0.3s ease;
+}
+
+.vault-node.active .vault-icon {
+    animation: pulseLock 1.6s infinite;
+}
+
+@keyframes pulseLock {
+    0%, 100% { transform: scale(1) rotate(0deg); }
+    25% { transform: scale(1.15) rotate(-6deg); }
+    75% { transform: scale(1.15) rotate(6deg); }
+}
+
+.vault-name {
+    font-size: 0.76rem;
+    font-weight: 800;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    display: block;
+    color: var(--text-main);
+}
+
+.vault-sub {
+    font-size: 0.68rem;
+    color: var(--text-muted);
+    display: block;
+    margin-top: 2px;
+}
+
+/* Cards e Telas */
+.card {
+    background: var(--card-bg);
+    border: 1px solid rgba(0, 240, 255, 0.22);
+    border-radius: 18px;
+    padding: 36px;
+    box-shadow: 0 25px 60px rgba(0, 0, 0, 0.8), 0 0 30px rgba(0, 240, 255, 0.06);
+    backdrop-filter: blur(14px);
+    animation: cardEntrance 0.45s cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+@keyframes cardEntrance {
+    from { opacity: 0; transform: translateY(18px) scale(0.98); }
+    to { opacity: 1; transform: translateY(0) scale(1); }
+}
+
+@keyframes fadeIn {
+    from { opacity: 0; }
+    to { opacity: 1; }
+}
+
+@keyframes shake {
+    0%, 100% { transform: translateX(0); }
+    15%, 45%, 75% { transform: translateX(-9px); }
+    30%, 60%, 90% { transform: translateX(9px); }
+}
+
+.shake {
+    animation: shake 0.45s ease;
+    border-color: var(--danger) !important;
+    box-shadow: 0 0 30px var(--danger-glow) !important;
+}
+
+.screen { display: none; }
+.screen.active { display: block; }
+.hidden { display: none !important; }
+
+.badge {
+    display: inline-block;
+    background: rgba(0, 240, 255, 0.12);
+    color: var(--accent);
+    border: 1px solid rgba(0, 240, 255, 0.35);
+    padding: 6px 14px;
+    border-radius: 999px;
+    font-size: 0.76rem;
+    font-weight: 800;
+    letter-spacing: 1px;
+    margin-bottom: 16px;
+}
+
+.badge.success {
+    background: rgba(16, 185, 129, 0.15);
+    color: var(--success);
+    border-color: rgba(16, 185, 129, 0.45);
+}
+
+.badge.danger {
+    background: rgba(239, 68, 68, 0.15);
+    color: var(--danger);
+    border-color: rgba(239, 68, 68, 0.45);
+}
+
+/* Efeito Glitch no Título Principal */
+.glitch-title {
+    font-size: 2.3rem;
+    margin-bottom: 14px;
+    letter-spacing: 1px;
+    font-weight: 900;
+    background: linear-gradient(90deg, #ffffff, var(--accent));
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    position: relative;
+    animation: titleGlow 3s infinite alternate;
+}
+
+@keyframes titleGlow {
+    from { filter: drop-shadow(0 0 4px rgba(0, 240, 255, 0.25)); }
+    to { filter: drop-shadow(0 0 14px rgba(0, 240, 255, 0.65)); }
+}
+
+.narrative {
+    color: var(--text-muted);
+    line-height: 1.65;
+    font-size: 1.05rem;
+    margin-bottom: 24px;
+}
+
+.rules-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(230px, 1fr));
+    gap: 12px;
+    margin-bottom: 28px;
+}
+
+.rule-box {
+    background: rgba(9, 14, 26, 0.85);
+    border: 1px solid #1e293b;
+    padding: 13px 16px;
+    border-radius: 10px;
+    font-size: 0.88rem;
+    color: #cbd5e1;
+    transition: transform 0.2s, border-color 0.2s;
+}
+
+.rule-box:hover {
+    transform: translateY(-2px);
+    border-color: rgba(0, 240, 255, 0.4);
+}
+
+.btn-primary, .btn-secondary {
+    width: 100%;
+    padding: 16px;
+    border: none;
+    border-radius: 12px;
+    font-size: 1.05rem;
+    font-weight: 800;
+    letter-spacing: 0.8px;
+    cursor: pointer;
+    position: relative;
+    overflow: hidden;
+    transition: transform 0.15s, background 0.2s, box-shadow 0.2s;
+}
+
+.btn-primary {
+    background: linear-gradient(90deg, #00c6ff, #00f0ff);
+    color: #030712;
+    box-shadow: 0 0 22px var(--accent-glow);
+}
+
+.btn-primary::after {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: -100%;
+    width: 60%;
+    height: 100%;
+    background: linear-gradient(90deg, transparent, rgba(255,255,255,0.45), transparent);
+    animation: btnShine 3s infinite;
+}
+
+@keyframes btnShine {
+    0% { left: -100%; }
+    40%, 100% { left: 150%; }
+}
+
+.btn-primary:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 0 32px rgba(0, 240, 255, 0.7);
+}
+
+.btn-secondary {
+    background: #1e293b;
+    color: var(--text-main);
+    border: 1px solid #334155;
+    margin-top: 16px;
+}
+
+.btn-secondary:hover {
+    background: #283548;
+    border-color: var(--accent);
+}
+
+/* Cabeçalho da Sala Atual */
+.room-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 20px;
+    flex-wrap: wrap;
+    gap: 12px;
+    padding-bottom: 14px;
+    border-bottom: 1px solid #1e293b;
+}
+
+.room-tag {
+    color: var(--accent);
+    font-size: 0.8rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 1px;
+}
+
+.room-header h2 {
+    font-size: 1.45rem;
+    margin-top: 4px;
+}
+
+.phase-progress-box {
+    text-align: right;
+}
+
+.phase-progress-label {
+    font-size: 0.72rem;
+    color: var(--text-muted);
+    display: block;
+    margin-bottom: 6px;
+    font-weight: 700;
+}
+
+.phase-dots {
+    display: flex;
+    gap: 8px;
+    justify-content: flex-end;
+}
+
+.dot {
+    width: 18px;
+    height: 18px;
+    border-radius: 50%;
+    background: #0f172a;
+    border: 2px solid #334155;
+    transition: all 0.35s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+}
+
+.dot.filled {
+    background: var(--success);
+    border-color: var(--success);
+    box-shadow: 0 0 14px var(--success-glow);
+    transform: scale(1.18);
+}
+
+/* Terminal da Questão com Efeito Typewriter */
+.terminal-box {
+    background: #050912;
+    border: 1px solid #1e293b;
+    border-radius: 12px;
+    overflow: hidden;
+    margin-bottom: 22px;
+    box-shadow: inset 0 0 28px rgba(0, 0, 0, 0.85);
+}
+
+.terminal-header {
+    background: #111827;
+    padding: 9px 16px;
+    font-family: monospace;
+    font-size: 0.82rem;
+    color: #94a3b8;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    border-bottom: 1px solid #1e293b;
+}
+
+.terminal-dots {
+    display: flex;
+    gap: 6px;
+}
+
+.t-dot { width: 10px; height: 10px; border-radius: 50%; }
+.t-red { background: #ef4444; }
+.t-yellow { background: #f59e0b; }
+.t-green { background: #10b981; }
+
+.question-text {
+    padding: 24px;
+    font-size: 1.12rem;
+    line-height: 1.65;
+    color: #f1f5f9;
+    min-height: 105px;
+}
+
+.typing-cursor {
+    display: inline-block;
+    width: 8px;
+    height: 1.1em;
+    background-color: var(--accent);
+    vertical-align: middle;
+    margin-left: 4px;
+    animation: blinkCursor 0.75s infinite;
+}
+
+@keyframes blinkCursor {
+    0%, 49% { opacity: 1; }
+    50%, 100% { opacity: 0; }
+}
+
+/* Alternativas com Entrada Escalonada */
+.options-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 14px;
+}
+
+@media (max-width: 620px) {
+    .options-grid { grid-template-columns: 1fr; }
+}
+
+.option-btn {
+    background: #111827;
+    border: 1px solid #293548;
+    color: var(--text-main);
+    padding: 16px 20px;
+    border-radius: 12px;
+    font-size: 1.05rem;
+    font-weight: 600;
+    cursor: pointer;
+    text-align: left;
+    transition: all 0.22s cubic-bezier(0.22, 1, 0.36, 1);
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    opacity: 0;
+    animation: optionSlideIn 0.35s forwards;
+}
+
+.option-btn:nth-child(1) { animation-delay: 0.05s; }
+.option-btn:nth-child(2) { animation-delay: 0.12s; }
+.option-btn:nth-child(3) { animation-delay: 0.19s; }
+.option-btn:nth-child(4) { animation-delay: 0.26s; }
+
+@keyframes optionSlideIn {
+    from { opacity: 0; transform: translateY(10px); }
+    to { opacity: 1; transform: translateY(0); }
+}
+
+.option-letter {
+    background: #1e293b;
+    color: var(--accent);
+    width: 32px;
+    height: 32px;
+    border-radius: 8px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    font-weight: 800;
+    font-size: 0.9rem;
+    flex-shrink: 0;
+    transition: all 0.2s;
+}
+
+.option-btn:hover:not(:disabled) {
+    border-color: var(--accent);
+    background: #162238;
+    transform: translateY(-3px) scale(1.01);
+    box-shadow: 0 8px 20px rgba(0, 240, 255, 0.18);
+}
+
+.option-btn:hover:not(:disabled) .option-letter {
+    background: var(--accent);
+    color: #050811;
+}
+
+.option-btn:disabled {
+    cursor: not-allowed;
+    opacity: 0.65;
+}
+
+.option-btn.correct-choice {
+    border-color: var(--success);
+    background: rgba(16, 185, 129, 0.22);
+    box-shadow: 0 0 18px var(--success-glow);
+    opacity: 1;
+}
+
+.option-btn.correct-choice .option-letter {
+    background: var(--success);
+    color: #050811;
+}
+
+.option-btn.wrong-choice {
+    border-color: var(--danger);
+    background: rgba(239, 68, 68, 0.22);
+    box-shadow: 0 0 18px var(--danger-glow);
+    opacity: 1;
+}
+
+.option-btn.wrong-choice .option-letter {
+    background: var(--danger);
+    color: #ffffff;
+}
+
+/* Feedback */
+.feedback-box {
+    margin-top: 22px;
+    padding: 20px;
+    border-radius: 12px;
+    background: #090e1a;
+    border: 1px solid #1e293b;
+    border-left: 5px solid var(--accent);
+    animation: cardEntrance 0.35s ease;
+}
+
+.feedback-box.ok { border-left-color: var(--success); }
+.feedback-box.fail { border-left-color: var(--danger); }
+
+.feedback-box h3 { margin-bottom: 8px; font-size: 1.1rem; }
+.feedback-box p { color: #cbd5e1; line-height: 1.6; }
+
+.stats-summary {
+    background: #090e1a;
+    border: 1px solid #1e293b;
+    border-radius: 12px;
+    padding: 20px;
+    margin-bottom: 24px;
+    display: flex;
+    justify-content: space-around;
+    text-align: center;
+}
+
+.stats-summary strong {
+    font-size: 1.45rem;
+    color: var(--accent);
+}
+    </style>
+</head>
+<body>
+    <!-- Canvas para Matrix Matemática de Fundo e Explosão de Partículas -->
+    <canvas id="matrix-canvas"></canvas>
+    <canvas id="particles-canvas"></canvas>
+
+    <div class="background-grid"></div>
+    <div class="scanline"></div>
+
+    <!-- Overlay Animado de Desbloqueio de Sala -->
+    <div class="room-transition-overlay hidden" id="room-transition">
+        <div class="unlock-big-icon">🔓</div>
+        <div class="transition-title" id="transition-title">CADEADO DESTRAVADO!</div>
+        <div class="transition-sub" id="transition-sub">Iniciando invasão à próxima sala...</div>
+    </div>
+
+    <!-- Barra Superior de Status -->
+    <header class="hud-bar hidden" id="hud-bar">
+        <div class="hud-group">
+            <div class="hud-item">
+                <span class="hud-label">FASE ATUAL</span>
+                <span class="hud-value" id="hud-fase">1 / 5 (Fácil)</span>
+            </div>
+            <div class="hud-item">
+                <span class="hud-label">CHAVES DE ESCAPE</span>
+                <div class="progress-wrapper">
+                    <div class="progress-bar" id="progress-bar" style="width: 0%;"></div>
+                </div>
+                <span class="hud-value" id="hud-acertos">0 / 12</span>
+            </div>
+            <div class="hud-item">
+                <span class="hud-label">ALERTAS (VIDAS)</span>
+                <span class="hud-value danger" id="hud-erros">0 / 5</span>
+            </div>
+            <div class="hud-item">
+                <span class="hud-label">RASTREAMENTO</span>
+                <span class="hud-value warning" id="hud-timer">15:00</span>
+            </div>
+            <div id="combo-container" class="hidden">
+                <span class="combo-badge" id="hud-combo">⚡ SEQUÊNCIA x2</span>
+            </div>
+        </div>
+
+        <div class="audio-controls">
+            <button class="btn-audio" id="btn-audio" title="Ativar/Silenciar Música e Efeitos">🔊 Áudio</button>
+            <input type="range" id="volume-slider" class="volume-slider" min="0" max="1" step="0.05" value="0.5" title="Volume">
+        </div>
+    </header>
+
+    <!-- TELA INICIAL -->
+    <main class="container">
+        <!-- Painel Visual das 5 Salas e Cadeados -->
+        <div class="vault-map hidden" id="vault-map">
+            <div class="vault-node active" id="vault-1">
+                <span class="vault-icon" id="icon-1">🔓</span>
+                <span class="vault-name">1. Firewall</span>
+                <span class="vault-sub">Fácil (0/1)</span>
+            </div>
+            <div class="vault-node locked" id="vault-2">
+                <span class="vault-icon" id="icon-2">🔒</span>
+                <span class="vault-name">2. Servidor</span>
+                <span class="vault-sub">Básico (0/2)</span>
+            </div>
+            <div class="vault-node locked" id="vault-3">
+                <span class="vault-icon" id="icon-3">🔒</span>
+                <span class="vault-name">3. Criptografia</span>
+                <span class="vault-sub">Interm. (0/2)</span>
+            </div>
+            <div class="vault-node locked" id="vault-4">
+                <span class="vault-icon" id="icon-4">🔒</span>
+                <span class="vault-name">4. Disjuntores</span>
+                <span class="vault-sub">Avançado (0/3)</span>
+            </div>
+            <div class="vault-node locked" id="vault-5">
+                <span class="vault-icon" id="icon-5">🔒</span>
+                <span class="vault-name">5. Cofre Central</span>
+                <span class="vault-sub">Difícil (0/4)</span>
+            </div>
+        </div>
+
+        <section class="card screen active" id="screen-start">
+            <div class="badge">PROJETO ESCAPE ROOM • ANÁLISE COMBINATÓRIA</div>
+            <h1 class="glitch-title">OPERAÇÃO COFRE CENTRAL</h1>
+            <p class="narrative">
+                Você está infiltrado no subsolo de um complexo de alta segurança. 
+                Para destravar os <strong>5 cadeados digitais</strong> e escapar antes que o rastreamento termine (<strong>15 minutos</strong>) 
+                ou que o alarme dispare (<strong>5 falhas</strong>), resolva os enigmas de Análise Combinatória e obtenha <strong>12 chaves</strong>.
+            </p>
+            <div class="rules-grid">
+                <div class="rule-box">🔒 <strong>Sala 1 (Fácil):</strong> 1 chave • PFC</div>
+                <div class="rule-box">🔒 <strong>Sala 2 (Básico):</strong> 2 chaves • Permutação</div>
+                <div class="rule-box">🔒 <strong>Sala 3 (Intermediário):</strong> 2 chaves • Perm. Repetição / Arranjo</div>
+                <div class="rule-box">🔒 <strong>Sala 4 (Avançado):</strong> 3 chaves • Combinação</div>
+                <div class="rule-box">🔒 <strong>Sala 5 (Difícil):</strong> 4 chaves • Restrições & Integração</div>
+            </div>
+            <button class="btn-primary" id="btn-start">INICIAR INVASÃO AO COFRE</button>
+        </section>
+
+        <!-- TELA DO JOGO -->
+        <section class="card screen" id="screen-game">
+            <div class="room-header">
+                <div>
+                    <span class="room-tag" id="room-topic">Princípio Fundamental da Contagem</span>
+                    <h2 id="room-title">Sala 1: Firewall de Borda</h2>
+                </div>
+                <div class="phase-progress-box">
+                    <span class="phase-progress-label">CHAVES DESTA SALA</span>
+                    <div class="phase-dots" id="phase-dots"></div>
+                </div>
+            </div>
+
+            <div class="terminal-box">
+                <div class="terminal-header">
+                    <div class="terminal-dots">
+                        <span class="t-dot t-red"></span>
+                        <span class="t-dot t-yellow"></span>
+                        <span class="t-dot t-green"></span>
+                    </div>
+                    <span>DESAFIO DE SEGURANÇA</span>
+                    <span id="question-id">ID: F1_01</span>
+                </div>
+                <p class="question-text" id="question-text">Carregando desafio...</p>
+            </div>
+
+            <div class="options-grid" id="options-grid"></div>
+
+            <div class="feedback-box hidden" id="feedback-box">
+                <h3 id="feedback-title"></h3>
+                <p id="feedback-text"></p>
+                <button class="btn-secondary" id="btn-next">AVANÇAR NO TERMINAL ➔</button>
+            </div>
+        </section>
+
+        <!-- TELA DE VITÓRIA -->
+        <section class="card screen" id="screen-victory">
+            <div class="badge success">TODOS OS 5 CADEADOS ABERTOS • ESCAPE CONCLUÍDO</div>
+            <h1 class="glitch-title">MISSÃO CUMPRIDA!</h1>
+            <p class="narrative">
+                As portas blindadas do Cofre Central foram abertas! Você superou todas as 5 salas e escapou sem deixar rastros.
+            </p>
+            <div class="stats-summary" id="victory-stats"></div>
+            <button class="btn-primary" onclick="iniciarPartida()">JOGAR NOVAMENTE</button>
+        </section>
+
+        <!-- TELA DE DERROTA -->
+        <section class="card screen" id="screen-defeat">
+            <div class="badge danger">SISTEMA BLOQUEADO • ALARME ACIONADO</div>
+            <h1 class="glitch-title">VOCÊ FOI CAPTURADO!</h1>
+            <p class="narrative" id="defeat-reason">O tempo esgotou antes que você pudesse escapar.</p>
+            <div class="feedback-box fail" id="defeat-last-resolution" style="margin-bottom: 20px;"></div>
+            <div class="stats-summary" id="defeat-stats"></div>
+            <button class="btn-primary" onclick="iniciarPartida()">TENTAR NOVAMENTE</button>
+        </section>
+    </main>
+
+    <script>
+/* ================= ANIMAÇÃO DE FUNDO: CHUVA MATRIX MATEMÁTICA ================= */
+const matrixCanvas = document.getElementById('matrix-canvas');
+const mCtx = matrixCanvas.getContext('2d');
+const simbolosMatrix = ['0', '1', 'n!', 'C(n,p)', 'A(n,p)', 'Pₙ', '∑', '∏', '∞', '720', '120', '360'];
+let mCols = [];
+
+function resizeMatrix() {
+    matrixCanvas.width = window.innerWidth;
+    matrixCanvas.height = window.innerHeight;
+    const columns = Math.floor(matrixCanvas.width / 26);
+    mCols = Array(columns).fill(1);
+}
+window.addEventListener('resize', resizeMatrix);
+resizeMatrix();
+
+setInterval(() => {
+    mCtx.fillStyle = 'rgba(5, 8, 17, 0.14)';
+    mCtx.fillRect(0, 0, matrixCanvas.width, matrixCanvas.height);
+    mCtx.fillStyle = document.body.classList.contains('panic-mode') ? '#ef4444' : '#00f0ff';
+    mCtx.font = '13px monospace';
+
+    for (let i = 0; i < mCols.length; i++) {
+        const text = simbolosMatrix[Math.floor(Math.random() * simbolosMatrix.length)];
+        mCtx.fillText(text, i * 26, mCols[i] * 22);
+        if (mCols[i] * 22 > matrixCanvas.height && Math.random() > 0.975) {
+            mCols[i] = 0;
+        }
+        mCols[i]++;
+    }
+}, 65);
+
+/* ================= SISTEMA DE PARTÍCULAS (EXPLOSÃO DE CHAVE / VITÓRIA) ================= */
+const pCanvas = document.getElementById('particles-canvas');
+const pCtx = pCanvas.getContext('2d');
+let particulas = [];
+
+function resizeParticles() {
+    pCanvas.width = window.innerWidth;
+    pCanvas.height = window.innerHeight;
+}
+window.addEventListener('resize', resizeParticles);
+resizeParticles();
+
+function dispararParticulas(corPrincipal = '#10b981', quantidade = 55) {
+    const cx = window.innerWidth / 2;
+    const cy = window.innerHeight / 2;
+    const cores = [corPrincipal, '#00f0ff', '#ffffff', '#f59e0b'];
+
+    for (let i = 0; i < quantidade; i++) {
+        const angulo = Math.random() * Math.PI * 2;
+        const velocidade = 2 + Math.random() * 7;
+        particulas.push({
+            x: cx,
+            y: cy,
+            vx: Math.cos(angulo) * velocidade,
+            vy: Math.sin(angulo) * velocidade - 2,
+            size: 3 + Math.random() * 4,
+            color: cores[Math.floor(Math.random() * cores.length)],
+            alpha: 1,
+            decay: 0.015 + Math.random() * 0.02
+        });
+    }
+}
+
+function loopParticulas() {
+    pCtx.clearRect(0, 0, pCanvas.width, pCanvas.height);
+    for (let i = particulas.length - 1; i >= 0; i--) {
+        const p = particulas[i];
+        p.x += p.vx;
+        p.y += p.vy;
+        p.vy += 0.14; // gravidade leve
+        p.alpha -= p.decay;
+
+        if (p.alpha <= 0) {
+            particulas.splice(i, 1);
+            continue;
+        }
+
+        pCtx.save();
+        pCtx.globalAlpha = p.alpha;
+        pCtx.fillStyle = p.color;
+        pCtx.shadowBlur = 10;
+        pCtx.shadowColor = p.color;
+        pCtx.fillRect(p.x, p.y, p.size, p.size);
+        pCtx.restore();
+    }
+    requestAnimationFrame(loopParticulas);
+}
+loopParticulas();
+
+/* ================= BANCO DE 50 QUESTÕES ================= */
+const BANCO_QUESTOES = {
+  "fase_1": [
+    {
+      "id": "F1_01",
+      "enunciado": "Para acessar o primeiro terminal do servidor, você precisa digitar um código de 3 dígitos distintos escolhidos entre {1, 2, 3, 4, 5}. Quantos códigos diferentes podem ser formados?",
+      "alternativas": ["15", "60", "120", "125"],
+      "correta": "60",
+      "resolucao": "Pelo Princípio Fundamental da Contagem (PFC): 5 opções para o 1º dígito × 4 opções para o 2º dígito × 3 opções para o 3º dígito = 60 códigos."
+    },
+    {
+      "id": "F1_02",
+      "enunciado": "O painel de energia exige a ativação de 1 interruptor vermelho (dentre 4 disponíveis) e 1 botão azul (dentre 3 disponíveis). De quantas maneiras você pode fazer essa ativação?",
+      "alternativas": ["7", "12", "24", "64"],
+      "correta": "12",
+      "resolucao": "Pelo PFC, multiplicamos as escolhas independentes: 4 interruptores × 3 botões = 12 maneiras."
+    },
+    {
+      "id": "F1_03",
+      "enunciado": "Para atravessar o corredor de segurança, existem 3 portas de entrada e 4 escadas de saída. De quantas formas distintas um agente pode entrar e sair desse setor?",
+      "alternativas": ["7", "12", "16", "81"],
+      "correta": "12",
+      "resolucao": "Pelo PFC: 3 opções de entrada × 4 opções de saída = 12 formas distintas."
+    },
+    {
+      "id": "F1_04",
+      "enunciado": "Um cadeado eletrônico possui 2 discos, cada um contendo as letras A, B, C e D. Quantas combinações de 2 letras (podendo repetir) existem nesse cadeado?",
+      "alternativas": ["8", "12", "16", "24"],
+      "correta": "16",
+      "resolucao": "Como as letras podem repetir, temos 4 possibilidades para o 1º disco e 4 para o 2º disco: 4 × 4 = 16 combinações."
+    },
+    {
+      "id": "F1_05",
+      "enunciado": "O sistema de identificação gera crachás com 1 vogal (A, E, I, O, U) seguida de 1 algarismo par (0, 2, 4, 6, 8). Quantos crachás diferentes podem ser gerados?",
+      "alternativas": ["10", "20", "25", "50"],
+      "correta": "25",
+      "resolucao": "Existem 5 vogais e 5 algarismos pares. Pelo PFC: 5 × 5 = 25 crachás."
+    },
+    {
+      "id": "F1_06",
+      "enunciado": "Uma senha de emergência é composta por 3 algarismos ímpares (1, 3, 5, 7, 9), podendo haver repetição. Quantas senhas de emergência existem?",
+      "alternativas": ["15", "60", "125", "243"],
+      "correta": "125",
+      "resolucao": "Existem 5 algarismos ímpares. Como pode repetir: 5 × 5 × 5 = 5³ = 125 senhas."
+    },
+    {
+      "id": "F1_07",
+      "enunciado": "No armário de equipamentos há 3 tipos de lanternas, 2 tipos de rádios e 4 tipos de coletes. Escolhendo um item de cada tipo, quantos kits diferentes podem ser montados?",
+      "alternativas": ["9", "12", "24", "36"],
+      "correta": "24",
+      "resolucao": "Pelo PFC: 3 lanternas × 2 rádios × 4 coletes = 24 kits."
+    },
+    {
+      "id": "F1_08",
+      "enunciado": "Um disjuntor central possui 4 chaves independentes que podem estar apenas na posição LIGADA ou DESLIGADA. Quantas configurações totais esse disjuntor admite?",
+      "alternativas": ["8", "12", "16", "32"],
+      "correta": "16",
+      "resolucao": "Cada chave possui 2 estados possíveis. Para 4 chaves: 2 × 2 × 2 × 2 = 2⁴ = 16 configurações."
+    },
+    {
+      "id": "F1_09",
+      "enunciado": "Quantos números naturais de 2 algarismos distintos podem ser formados utilizando apenas os dígitos {2, 4, 6, 8}?",
+      "alternativas": ["8", "12", "16", "24"],
+      "correta": "12",
+      "resolucao": "4 opções para a dezena × 3 opções restantes para a unidade = 12 números."
+    },
+    {
+      "id": "F1_10",
+      "enunciado": "Para desativar o alarme da porta 1, é preciso escolher 1 cartão magnético (entre 5 cores) e digitar 1 dígito de 0 a 9. Quantas tentativas máximas existem?",
+      "alternativas": ["15", "45", "50", "100"],
+      "correta": "50",
+      "resolucao": "5 opções de cartão × 10 opções de dígitos (0 a 9) = 50 tentativas."
+    }
+  ],
+  "fase_2": [
+    {
+      "id": "F2_01",
+      "enunciado": "O firewall embaralhou todas as letras da palavra-chave CHAVE para gerar um token. Quantos anagramas distintos podem ser formados?",
+      "alternativas": ["25", "60", "120", "720"],
+      "correta": "120",
+      "resolucao": "A palavra CHAVE possui 5 letras distintas. Permutação simples: P₅ = 5! = 5 × 4 × 3 × 2 × 1 = 120."
+    },
+    {
+      "id": "F2_02",
+      "enunciado": "Quatro servidores (Alfa, Beta, Gama e Delta) precisam ser enfileirados no rack principal. De quantas maneiras distintas eles podem ser ordenados?",
+      "alternativas": ["12", "16", "24", "64"],
+      "correta": "24",
+      "resolucao": "Permutação de 4 elementos distintos: P₄ = 4! = 4 × 3 × 2 × 1 = 24 maneiras."
+    },
+    {
+      "id": "F2_03",
+      "enunciado": "Quantos anagramas da palavra COFRE começam obrigatoriamente com a letra C?",
+      "alternativas": ["24", "60", "120", "720"],
+      "correta": "24",
+      "resolucao": "Fixando a letra C na primeira posição, restam 4 letras distintas (O, F, R, E) para permutar: P₄ = 4! = 24."
+    },
+    {
+      "id": "F2_04",
+      "enunciado": "Seis cabos de fibra óptica de cores diferentes devem ser conectados em 6 portas alinhadas. De quantas formas diferentes essa conexão pode ser feita?",
+      "alternativas": ["36", "120", "360", "720"],
+      "correta": "720",
+      "resolucao": "Permutação simples de 6 elementos: P₆ = 6! = 6 × 5 × 4 × 3 × 2 × 1 = 720."
+    },
+    {
+      "id": "F2_05",
+      "enunciado": "Quantos números de 5 algarismos distintos podem ser formados usando todos os dígitos do conjunto {1, 3, 5, 7, 9}?",
+      "alternativas": ["25", "60", "120", "625"],
+      "correta": "120",
+      "resolucao": "Como usamos todos os 5 dígitos sem repetição, temos P₅ = 5! = 120 números."
+    },
+    {
+      "id": "F2_06",
+      "enunciado": "Quantos anagramas da palavra PORTA terminam com uma vogal (O ou A)?",
+      "alternativas": ["24", "48", "60", "120"],
+      "correta": "48",
+      "resolucao": "Existem 2 escolhas para a última letra (O ou A). As 4 letras restantes permutam de 4! = 24 formas. Total: 2 × 24 = 48."
+    },
+    {
+      "id": "F2_07",
+      "enunciado": "Cinco agentes de segurança devem passar por um scanner biométrico, um de cada vez. De quantas ordens diferentes essa fila pode ser formada?",
+      "alternativas": ["20", "60", "120", "240"],
+      "correta": "120",
+      "resolucao": "Permutação de 5 pessoas: P₅ = 5! = 120 ordens."
+    },
+    {
+      "id": "F2_08",
+      "enunciado": "Quantos anagramas da palavra SENHA possuem as letras S e E juntas, exatamente nessa ordem (SE)?",
+      "alternativas": ["24", "48", "60", "120"],
+      "correta": "24",
+      "resolucao": "Tratando o bloco [SE] como um único elemento, temos 4 blocos ([SE], N, H, A) para permutar: P₄ = 4! = 24."
+    },
+    {
+      "id": "F2_09",
+      "enunciado": "Um cofre exige que os dígitos 2, 4, 6 e 8 sejam digitados em uma sequência sem repetição. Quantas sequências existem?",
+      "alternativas": ["16", "24", "64", "256"],
+      "correta": "24",
+      "resolucao": "Permutação simples de 4 dígitos distintos: P₄ = 4! = 24 sequências."
+    },
+    {
+      "id": "F2_10",
+      "enunciado": "Quantos anagramas da palavra LOGICA começam com vogal e terminam com consoante?",
+      "alternativas": ["144", "216", "288", "720"],
+      "correta": "216",
+      "resolucao": "LOGICA tem 3 vogais (O, I, A) e 3 consoantes (L, G, C). Escolhemos a 1ª letra (3 opções) e a última (3 opções). As 4 do meio permutam em 4! = 24 formas. Total: 3 × 3 × 24 = 216."
+    }
+  ],
+  "fase_3": [
+    {
+      "id": "F3_01",
+      "enunciado": "Um painel possui 6 LEDs alinhados: 3 vermelhos, 2 verdes e 1 azul. De quantas maneiras diferentes esses LEDs podem ser organizados?",
+      "alternativas": ["30", "60", "120", "720"],
+      "correta": "60",
+      "resolucao": "Permutação com repetição: P₆^(3,2,1) = 6! / (3! · 2! · 1!) = 720 / (6 · 2 · 1) = 60."
+    },
+    {
+      "id": "F3_02",
+      "enunciado": "Dentre 7 especialistas em cibersegurança, precisamos escolher 1 Líder e 1 Sublíder para a operação. De quantas maneiras essa escolha pode ser feita?",
+      "alternativas": ["14", "21", "42", "49"],
+      "correta": "42",
+      "resolucao": "Como os cargos são distintos (a ordem importa), usamos Arranjo Simples: A₇,₂ = 7! / (7-2)! = 7 × 6 = 42."
+    },
+    {
+      "id": "F3_03",
+      "enunciado": "Quantos anagramas distintos podem ser formados com todas as letras da palavra SISTEMA?",
+      "alternativas": ["840", "1260", "2520", "5040"],
+      "correta": "2520",
+      "resolucao": "SISTEMA tem 7 letras, com a letra S repetida 2 vezes. P₇² = 7! / 2! = 5040 / 2 = 2520."
+    },
+    {
+      "id": "F3_04",
+      "enunciado": "Um teclado possui 8 teclas numéricas distintas. Quantas senhas de 3 dígitos distintos podem ser criadas?",
+      "alternativas": ["56", "120", "336", "512"],
+      "correta": "336",
+      "resolucao": "A ordem dos dígitos importa e não há repetição: A₈,₃ = 8 × 7 × 6 = 336 senhas."
+    },
+    {
+      "id": "F3_05",
+      "enunciado": "Para navegar em uma grade de circuitos, um pulso elétrico precisa dar 4 passos para a Direita (D) e 3 passos para Cima (C). Quantos caminhos distintos existem?",
+      "alternativas": ["12", "24", "35", "70"],
+      "correta": "35",
+      "resolucao": "Permutação com repetição de 7 passos (4 D e 3 C): P₇^(4,3) = 7! / (4! · 3!) = (7 × 6 × 5) / 6 = 35."
+    },
+    {
+      "id": "F3_06",
+      "enunciado": "Quantos anagramas distintos possui a palavra DADOS?",
+      "alternativas": ["20", "30", "60", "120"],
+      "correta": "60",
+      "resolucao": "DADOS tem 5 letras, com D repetido 2 vezes: P₅² = 5! / 2! = 120 / 2 = 60."
+    },
+    {
+      "id": "F3_07",
+      "enunciado": "Em um campeonato de hackers com 10 finalistas, serão premiados o 1º, o 2º e o 3º colocados. De quantas formas o pódio pode ser formado?",
+      "alternativas": ["120", "360", "720", "1000"],
+      "correta": "720",
+      "resolucao": "Arranjo simples de 10 elementos tomados 3 a 3: A₁₀,₃ = 10 × 9 × 8 = 720."
+    },
+    {
+      "id": "F3_08",
+      "enunciado": "Uma sequência binária de 6 bits contém exatamente quatro dígitos '1' e dois dígitos '0'. Quantas sequências desse tipo existem?",
+      "alternativas": ["12", "15", "30", "64"],
+      "correta": "15",
+      "resolucao": "Permutação com repetição: P₆^(4,2) = 6! / (4! · 2!) = (6 × 5) / 2 = 15."
+    },
+    {
+      "id": "F3_09",
+      "enunciado": "Quantos números de 4 algarismos distintos podem ser formados com os dígitos {1, 2, 3, 4, 5, 6}?",
+      "alternativas": ["15", "24", "360", "1296"],
+      "correta": "360",
+      "resolucao": "Arranjo simples A₆,₄ = 6 × 5 × 4 × 3 = 360."
+    },
+    {
+      "id": "F3_10",
+      "enunciado": "Quantos anagramas distintos tem a palavra ARARA?",
+      "alternativas": ["10", "20", "60", "120"],
+      "correta": "10",
+      "resolucao": "ARARA tem 5 letras, com 3 letras A e 2 letras R: P₅^(3,2) = 5! / (3! · 2!) = 120 / 12 = 10."
+    }
+  ],
+  "fase_4": [
+    {
+      "id": "F4_01",
+      "enunciado": "Para desativar o setor 4, é preciso acionar simultaneamente 3 disjuntores dentre 8 disponíveis no quadro. De quantas formas isso pode ser feito?",
+      "alternativas": ["24", "56", "336", "512"],
+      "correta": "56",
+      "resolucao": "Como os disjuntores são acionados simultaneamente, a ordem não importa. Combinação simples: C₈,₃ = 8! / (3! · 5!) = (8 × 7 × 6) / 6 = 56."
+    },
+    {
+      "id": "F4_02",
+      "enunciado": "Uma comissão de 4 analistas será escolhida dentre 7 profissionais da equipe para auditar o servidor. Quantas comissões distintas podem ser formadas?",
+      "alternativas": ["28", "35", "210", "840"],
+      "correta": "35",
+      "resolucao": "Combinação simples: C₇,₄ = 7! / (4! · 3!) = (7 × 6 × 5) / 6 = 35."
+    },
+    {
+      "id": "F4_03",
+      "enunciado": "Um servidor possui 10 portas USB e precisamos conectar 2 pendrives idênticos simultaneamente. De quantas maneiras podemos escolher as portas?",
+      "alternativas": ["20", "45", "90", "100"],
+      "correta": "45",
+      "resolucao": "Como os pendrives são idênticos, a ordem não altera a escolha: C₁₀,₂ = (10 × 9) / 2 = 45."
+    },
+    {
+      "id": "F4_04",
+      "enunciado": "Em uma rede com 6 computadores, cada máquina deve ser conectada diretamente a todas as outras por um cabo exclusivo. Quantos cabos serão necessários?",
+      "alternativas": ["12", "15", "30", "36"],
+      "correta": "15",
+      "resolucao": "Cada cabo liga um par de computadores sem importar a ordem: C₆,₂ = (6 × 5) / 2 = 15 cabos."
+    },
+    {
+      "id": "F4_05",
+      "enunciado": "Um cofre exige que 4 botões dentre 9 sejam pressionados juntos. Quantas combinações de botões existem?",
+      "alternativas": ["36", "84", "126", "3024"],
+      "correta": "126",
+      "resolucao": "Combinação simples: C₉,₄ = (9 × 8 × 7 × 6) / (4 × 3 × 2 × 1) = 3024 / 24 = 126."
+    },
+    {
+      "id": "F4_06",
+      "enunciado": "De um lote de 12 chips de memória, 3 serão selecionados para teste de estresse. De quantas maneiras essa amostra pode ser escolhida?",
+      "alternativas": ["36", "110", "220", "1320"],
+      "correta": "220",
+      "resolucao": "C₁₂,₃ = (12 × 11 × 10) / (3 × 2 × 1) = 1320 / 6 = 220."
+    },
+    {
+      "id": "F4_07",
+      "enunciado": "Quantos subconjuntos de 3 elementos possui o conjunto de chaves criptográficas K = {k1, k2, k3, k4, k5, k6}?",
+      "alternativas": ["18", "20", "60", "120"],
+      "correta": "20",
+      "resolucao": "Em subconjuntos a ordem não importa: C₆,₃ = (6 × 5 × 4) / 6 = 20."
+    },
+    {
+      "id": "F4_08",
+      "enunciado": "Para compor uma chave de segurança, devemos escolher 2 vogais distintas dentre as 5 existentes e 2 consoantes distintas dentre 4 disponíveis. Quantas escolhas de letras existem?",
+      "alternativas": ["16", "30", "60", "120"],
+      "correta": "60",
+      "resolucao": "Escolhemos as vogais (C₅,₂ = 10) e as consoantes (C₄,₂ = 6). Pelo PFC: 10 × 6 = 60."
+    },
+    {
+      "id": "F4_09",
+      "enunciado": "Sobre uma circunferência de radar há 7 pontos marcados. Quantos triângulos distintos podem ser formados unindo esses pontos?",
+      "alternativas": ["21", "35", "70", "210"],
+      "correta": "35",
+      "resolucao": "Três pontos não colineares definem um único triângulo: C₇,₃ = (7 × 6 × 5) / 6 = 35."
+    },
+    {
+      "id": "F4_10",
+      "enunciado": "Uma equipe de resposta tem 8 agentes e precisa enviar uma dupla de reconhecimento. Quantas duplas distintas podem ser formadas?",
+      "alternativas": ["16", "28", "56", "64"],
+      "correta": "28",
+      "resolucao": "C₈,₂ = (8 × 7) / 2 = 28 duplas."
+    }
+  ],
+  "fase_5": [
+    {
+      "id": "F5_01",
+      "enunciado": "Uma equipe de 4 agentes será formada a partir de 5 hackers e 4 infiltradores, devendo conter PELO MENOS 2 hackers. Quantas equipes são possíveis?",
+      "alternativas": ["60", "100", "105", "126"],
+      "correta": "105",
+      "resolucao": "Casos possíveis: (2H e 2I) + (3H e 1I) + (4H e 0I) = (C₅,₂ · C₄,₂) + (C₅,₃ · C₄,₁) + (C₅,₄ · C₄,₀) = (10 · 6) + (10 · 4) + (5 · 1) = 60 + 40 + 5 = 105."
+    },
+    {
+      "id": "F5_02",
+      "enunciado": "Quantos números pares de 3 algarismos distintos podem ser formados utilizando os dígitos {1, 2, 3, 4, 5}?",
+      "alternativas": ["12", "24", "36", "48"],
+      "correta": "24",
+      "resolucao": "Para ser par, a unidade deve ser 2 ou 4 (2 opções). Restam 4 dígitos para a centena e 3 para a dezena: 4 × 3 × 2 = 24."
+    },
+    {
+      "id": "F5_03",
+      "enunciado": "De quantas maneiras 5 agentes (A, B, C, D, E) podem se posicionar em fila de modo que os agentes A e B NUNCA fiquem juntos?",
+      "alternativas": ["48", "72", "96", "120"],
+      "correta": "72",
+      "resolucao": "Total de filas sem restrição: 5! = 120. Filas com A e B juntos: 4! × 2! = 24 × 2 = 48. Subtraindo: 120 - 48 = 72."
+    },
+    {
+      "id": "F5_04",
+      "enunciado": "Uma senha de 4 caracteres distintos será formada escolhendo-se 2 vogais dentre {A, E, I, O, U} e 2 dígitos dentre {1, 2, 3, 4}, podendo misturá-los em qualquer ordem. Quantas senhas existem?",
+      "alternativas": ["60", "240", "720", "1440"],
+      "correta": "1440",
+      "resolucao": "1º Escolher as vogais: C₅,₂ = 10. 2º Escolher os dígitos: C₄,₂ = 6. 3º Permutar os 4 caracteres escolhidos: 4! = 24. Total: 10 × 6 × 24 = 1440."
+    },
+    {
+      "id": "F5_05",
+      "enunciado": "Dentre 6 programadores e 4 engenheiros, deseja-se formar um comitê de 4 pessoas com EXATAMENTE 2 programadores e 2 engenheiros. Quantos comitês existem?",
+      "alternativas": ["21", "45", "90", "210"],
+      "correta": "90",
+      "resolucao": "Escolhemos 2 programadores (C₆,₂ = 15) e 2 engenheiros (C₄,₂ = 6). Pelo PFC: 15 × 6 = 90 comitês."
+    },
+    {
+      "id": "F5_06",
+      "enunciado": "Quantos anagramas da palavra CAPITULO possuem todas as vogais juntas (em qualquer ordem entre si)?",
+      "alternativas": ["720", "1440", "2880", "5760"],
+      "correta": "2880",
+      "resolucao": "CAPITULO tem 8 letras: 4 vogais (A, I, U, O) e 4 consoantes (C, P, T, L). O bloco das 4 vogais + 4 consoantes = 5 elementos para permutar (5! = 120). As vogais permutam entre si (4! = 24). Total: 120 × 24 = 2880."
+    },
+    {
+      "id": "F5_07",
+      "enunciado": "Quantos números naturais de 3 algarismos distintos podem ser formados com os dígitos {0, 1, 2, 3, 4}?",
+      "alternativas": ["36", "48", "60", "100"],
+      "correta": "48",
+      "resolucao": "O zero não pode ocupar a centena (4 opções: 1, 2, 3 ou 4). Para a dezena temos 4 opções (incluindo o zero) e para a unidade 3 opções: 4 × 4 × 3 = 48."
+    },
+    {
+      "id": "F5_08",
+      "enunciado": "Em um grupo de 8 técnicos, dois deles (Marcos e Júlia) não podem trabalhar na mesma equipe por conflito de protocolo. Quantas equipes de 3 técnicos podem ser formadas?",
+      "alternativas": ["36", "40", "50", "56"],
+      "correta": "50",
+      "resolucao": "Total de equipes sem restrição: C₈,₃ = 56. Equipes com Marcos e Júlia juntos (basta escolher mais 1 dentre os 6 restantes): C₆,₁ = 6. Total válido: 56 - 6 = 50."
+    },
+    {
+      "id": "F5_09",
+      "enunciado": "Quantos anagramas da palavra MATEMATICA começam e terminam com a letra A?",
+      "alternativas": ["5040", "10080", "15120", "30240"],
+      "correta": "10080",
+      "resolucao": "MATEMATICA tem 10 letras (3 A, 2 M, 2 T, 1 E, 1 I, 1 C). Fixando um 'A' no início e outro 'A' no fim, sobram 8 letras no meio com repetições: 2 M e 2 T. P₈^(2,2) = 8! / (2! · 2!) = 40320 / 4 = 10080."
+    },
+    {
+      "id": "F5_10",
+      "enunciado": "Um código de acesso exige 3 letras distintas escolhidas de {A, B, C, D} seguidas de 2 algarismos distintos escolhidos de {1, 2, 3}. Quantos códigos existem?",
+      "alternativas": ["30", "72", "144", "288"],
+      "correta": "144",
+      "resolucao": "Arranjo de 4 letras tomadas 3 a 3 (A₄,₃ = 24) multiplicado pelo arranjo de 3 dígitos tomados 2 a 2 (A₃,₂ = 6): 24 × 6 = 144."
+    }
+  ]
+};
+
+const CONFIG_FASES = {
+    1: { nome: "Fácil", curto: "1. Firewall", nivelCurto: "Fácil", sala: "Sala 1: Firewall de Borda", acertos_necessarios: 1, tema: "Princípio Fundamental da Contagem" },
+    2: { nome: "Básico", curto: "2. Servidor", nivelCurto: "Básico", sala: "Sala 2: Servidor de Autenticação", acertos_necessarios: 2, tema: "Permutação Simples" },
+    3: { nome: "Intermediário", curto: "3. Criptografia", nivelCurto: "Interm.", sala: "Sala 3: Núcleo de Criptografia", acertos_necessarios: 2, tema: "Permutação com Repetição e Arranjo Simples" },
+    4: { nome: "Avançado", curto: "4. Disjuntores", nivelCurto: "Avançado", sala: "Sala 4: Matriz de Disjuntores", acertos_necessarios: 3, tema: "Combinação Simples" },
+    5: { nome: "Difícil", curto: "5. Cofre Central", nivelCurto: "Difícil", sala: "Sala 5: Cofre Central", acertos_necessarios: 4, tema: "Problemas com Restrições e Integração" }
+};
+
+let estado = {
+    fase_atual: 1,
+    acertos_fase: 0,
+    acertos_totais: 0,
+    erros: 0,
+    max_erros: 5,
+    sequencia: 0,
+    usadas: new Set(),
+    questao_atual: null
+};
+
+let tempoRestante = 900;
+let timerInterval = null;
+let typingInterval = null;
+let aguardandoProximo = false;
+
+/* ================= MOTOR DE ÁUDIO (MÚSICA DE FUNDO + EFEITOS + VOLUME) ================= */
+let somAtivo = true;
+let volumeGeral = 0.5;
+let audioCtx = null;
+let masterGain = null;
+let musicInterval = null;
+let notaIndex = 0;
+
+const TRILHA_NOTAS = [
+    110.00, 130.81, 146.83, 130.81,
+    110.00, 164.81, 146.83, 130.81,
+    98.00,  110.00, 130.81, 146.83,
+    164.81, 146.83, 130.81, 123.47
+];
+
+function initAudio() {
+    if (!audioCtx) {
+        audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+        masterGain = audioCtx.createGain();
+        masterGain.gain.value = somAtivo ? volumeGeral : 0;
+        masterGain.connect(audioCtx.destination);
+    }
+    if (audioCtx.state === 'suspended') {
+        audioCtx.resume();
+    }
+}
+
+function iniciarMusicaFundo(rapida = false) {
+    initAudio();
+    if (musicInterval) clearInterval(musicInterval);
+
+    const intervaloMs = rapida ? 360 : 600;
+    musicInterval = setInterval(() => {
+        if (!somAtivo || volumeGeral <= 0 || !audioCtx) return;
+
+        const now = audioCtx.currentTime;
+        const osc = audioCtx.createOscillator();
+        const noteGain = audioCtx.createGain();
+
+        osc.type = rapida ? 'sawtooth' : 'triangle';
+        osc.frequency.setValueAtTime(TRILHA_NOTAS[notaIndex % TRILHA_NOTAS.length], now);
+
+        noteGain.gain.setValueAtTime(0.001, now);
+        noteGain.gain.linearRampToValueAtTime(rapida ? 0.05 : 0.08, now + 0.05);
+        noteGain.gain.exponentialRampToValueAtTime(0.001, now + 0.32);
+
+        osc.connect(noteGain);
+        noteGain.connect(masterGain);
+
+        osc.start(now);
+        osc.stop(now + 0.35);
+        notaIndex++;
+    }, intervaloMs);
+}
+
+function pararMusicaFundo() {
+    if (musicInterval) {
+        clearInterval(musicInterval);
+        musicInterval = null;
+    }
+}
+
+function tocarSom(tipo) {
+    if (!somAtivo || volumeGeral <= 0) return;
+    initAudio();
+
+    const osc = audioCtx.createOscillator();
+    const gain = audioCtx.createGain();
+    osc.connect(gain);
+    gain.connect(masterGain);
+
+    const now = audioCtx.currentTime;
+
+    if (tipo === 'tecla') {
+        osc.type = 'sine';
+        osc.frequency.setValueAtTime(750 + Math.random() * 150, now);
+        gain.gain.setValueAtTime(0.025, now);
+        gain.gain.exponentialRampToValueAtTime(0.001, now + 0.03);
+        osc.start(now);
+        osc.stop(now + 0.03);
+    } else if (tipo === 'acerto') {
+        osc.type = 'sine';
+        osc.frequency.setValueAtTime(523.25, now);
+        osc.frequency.setValueAtTime(659.25, now + 0.09);
+        osc.frequency.setValueAtTime(783.99, now + 0.18);
+        gain.gain.setValueAtTime(0.28, now);
+        gain.gain.exponentialRampToValueAtTime(0.001, now + 0.42);
+        osc.start(now);
+        osc.stop(now + 0.42);
+    } else if (tipo === 'erro') {
+        osc.type = 'sawtooth';
+        osc.frequency.setValueAtTime(175, now);
+        osc.frequency.linearRampToValueAtTime(95, now + 0.35);
+        gain.gain.setValueAtTime(0.25, now);
+        gain.gain.exponentialRampToValueAtTime(0.001, now + 0.4);
+        osc.start(now);
+        osc.stop(now + 0.4);
+    } else if (tipo === 'fase') {
+        osc.type = 'triangle';
+        osc.frequency.setValueAtTime(440, now);
+        osc.frequency.setValueAtTime(554.37, now + 0.1);
+        osc.frequency.setValueAtTime(659.25, now + 0.2);
+        osc.frequency.setValueAtTime(880, now + 0.32);
+        gain.gain.setValueAtTime(0.32, now);
+        gain.gain.exponentialRampToValueAtTime(0.001, now + 0.65);
+        osc.start(now);
+        osc.stop(now + 0.65);
+    }
+}
+
+document.getElementById('btn-audio').addEventListener('click', () => {
+    somAtivo = !somAtivo;
+    document.getElementById('btn-audio').textContent = somAtivo ? '🔊 Áudio' : '🔇 Mudo';
+    if (masterGain) {
+        masterGain.gain.setValueAtTime(somAtivo ? volumeGeral : 0, audioCtx.currentTime);
+    }
+});
+
+document.getElementById('volume-slider').addEventListener('input', (e) => {
+    volumeGeral = parseFloat(e.target.value);
+    if (volumeGeral > 0 && !somAtivo) {
+        somAtivo = true;
+        document.getElementById('btn-audio').textContent = '🔊 Áudio';
+    } else if (volumeGeral === 0) {
+        somAtivo = false;
+        document.getElementById('btn-audio').textContent = '🔇 Mudo';
+    }
+    if (masterGain) {
+        masterGain.gain.setValueAtTime(somAtivo ? volumeGeral : 0, audioCtx.currentTime);
+    }
+});
+
+/* ================= EFEITO DE DIGITAÇÃO NO TERMINAL ================= */
+function digitarTextoTerminal(elemento, texto) {
+    if (typingInterval) clearInterval(typingInterval);
+    elemento.innerHTML = '<span class="typing-cursor"></span>';
+    let idx = 0;
+
+    typingInterval = setInterval(() => {
+        if (idx < texto.length) {
+            const atual = texto.slice(0, idx + 1);
+            elemento.innerHTML = `${atual}<span class="typing-cursor"></span>`;
+            if (idx % 4 === 0) tocarSom('tecla');
+            idx++;
+        } else {
+            clearInterval(typingInterval);
+            elemento.innerHTML = `${texto}<span class="typing-cursor"></span>`;
+        }
+    }, 16);
+}
+
+/* ================= TRANSIÇÃO ANIMADA ENTRE SALAS ================= */
+function exibirAnimacaoDesbloqueio(numeroNovaSala, nomeNovaSala, callback) {
+    const overlay = document.getElementById('room-transition');
+    document.getElementById('transition-title').textContent = `CADEADO ${numeroNovaSala - 1} DESTRAVADO!`;
+    document.getElementById('transition-sub').textContent = `Acessando ${nomeNovaSala}...`;
+    overlay.classList.remove('hidden');
+    dispararParticulas('#10b981', 70);
+
+    setTimeout(() => {
+        overlay.classList.add('hidden');
+        if (callback) callback();
+    }, 1350);
+}
+
+/* ================= CONTROLE DE INTERFACE E MAPA DOS CADEADOS ================= */
+function atualizarPainelCadeados() {
+    for (let f = 1; f <= 5; f++) {
+        const node = document.getElementById(`vault-${f}`);
+        const icon = document.getElementById(`icon-${f}`);
+        const sub = node.querySelector('.vault-sub');
+        const cfg = CONFIG_FASES[f];
+
+        node.classList.remove('locked', 'active', 'unlocked');
+
+        if (f < estado.fase_atual) {
+            node.classList.add('unlocked');
+            icon.textContent = '✅';
+            sub.textContent = `${cfg.nivelCurto} (${cfg.acertos_necessarios}/${cfg.acertos_necessarios})`;
+        } else if (f === estado.fase_atual) {
+            node.classList.add('active');
+            icon.textContent = '🔐';
+            sub.textContent = `${cfg.nivelCurto} (${estado.acertos_fase}/${cfg.acertos_necessarios})`;
+        } else {
+            node.classList.add('locked');
+            icon.textContent = '🔒';
+            sub.textContent = `${cfg.nivelCurto} (0/${cfg.acertos_necessarios})`;
+        }
+    }
+}
+
+function atualizarComboHUD() {
+    const comboCont = document.getElementById('combo-container');
+    const comboEl = document.getElementById('hud-combo');
+    if (estado.sequencia >= 2) {
+        comboCont.classList.remove('hidden');
+        comboEl.textContent = `⚡ SEQUÊNCIA x${estado.sequencia}`;
+    } else {
+        comboCont.classList.add('hidden');
+    }
+}
+
+document.getElementById('btn-start').addEventListener('click', iniciarPartida);
+document.getElementById('btn-next').addEventListener('click', () => {
+    if (aguardandoProximo) {
+        aguardandoProximo = false;
+        carregarProximaQuestao();
+    }
+});
+
+function mostrarTela(idTela) {
+    document.querySelectorAll('.screen').forEach(s => s.classList.remove('active'));
+    document.getElementById(idTela).classList.add('active');
+}
+
+function iniciarCronometro() {
+    clearInterval(timerInterval);
+    tempoRestante = 900;
+    let modoPanicoAtivado = false;
+    document.body.classList.remove('panic-mode');
+    document.getElementById('hud-timer').classList.remove('panic-text');
+    atualizarDisplayTimer();
+
+    timerInterval = setInterval(() => {
+        tempoRestante--;
+        atualizarDisplayTimer();
+
+        if (tempoRestante <= 120 && !modoPanicoAtivado) {
+            modoPanicoAtivado = true;
+            document.body.classList.add('panic-mode');
+            document.getElementById('hud-timer').classList.add('panic-text');
+            iniciarMusicaFundo(true);
+        }
+
+        if (tempoRestante <= 0) {
+            clearInterval(timerInterval);
+            pararMusicaFundo();
+            tocarSom('erro');
+            document.body.classList.remove('panic-mode');
+            document.getElementById('hud-bar').classList.add('hidden');
+            document.getElementById('vault-map').classList.add('hidden');
+            document.getElementById('defeat-reason').textContent = "O tempo limite de 15 minutos expirou!";
+            document.getElementById('defeat-last-resolution').classList.add('hidden');
+            document.getElementById('defeat-stats').innerHTML = `
+                <div><strong>${estado.acertos_totais} / 12</strong><br><small>Chaves Obtidas</small></div>
+                <div><strong>${estado.erros} / 5</strong><br><small>Alertas</small></div>
+            `;
+            mostrarTela('screen-defeat');
+        }
+    }, 1000);
+}
+
+function atualizarDisplayTimer() {
+    const min = String(Math.floor(tempoRestante / 60)).padStart(2, '0');
+    const seg = String(tempoRestante % 60).padStart(2, '0');
+    document.getElementById('hud-timer').textContent = `${min}:${seg}`;
+}
+
+function sortearQuestao(fase) {
+    const todas = BANCO_QUESTOES[`fase_${fase}`] || [];
+    let disponiveis = todas.filter(q => !estado.usadas.has(q.id));
+
+    if (disponiveis.length === 0) {
+        todas.forEach(q => estado.usadas.delete(q.id));
+        disponiveis = todas;
+    }
+
+    const escolhida = disponiveis[Math.floor(Math.random() * disponiveis.length)];
+    estado.usadas.add(escolhida.id);
+    estado.questao_atual = escolhida;
+    return escolhida;
+}
+
+function iniciarPartida() {
+    initAudio();
+    iniciarMusicaFundo(false);
+
+    estado = {
+        fase_atual: 1,
+        acertos_fase: 0,
+        acertos_totais: 0,
+        erros: 0,
+        max_erros: 5,
+        sequencia: 0,
+        usadas: new Set(),
+        questao_atual: null
+    };
+    aguardandoProximo = false;
+
+    atualizarComboHUD();
+    document.getElementById('hud-bar').classList.remove('hidden');
+    document.getElementById('vault-map').classList.remove('hidden');
+    iniciarCronometro();
+    carregarProximaQuestao();
+    mostrarTela('screen-game');
+}
+
+function carregarProximaQuestao() {
+    const questao = sortearQuestao(estado.fase_atual);
+    const infoFase = CONFIG_FASES[estado.fase_atual];
+
+    atualizarPainelCadeados();
+
+    const gameCard = document.getElementById('screen-game');
+    gameCard.classList.remove('shake');
+    document.getElementById('feedback-box').classList.add('hidden');
+    document.getElementById('hud-fase').textContent = `${estado.fase_atual} / 5 (${infoFase.nome})`;
+    document.getElementById('hud-acertos').textContent = `${estado.acertos_totais} / 12`;
+    document.getElementById('hud-erros').textContent = `${estado.erros} / ${estado.max_erros}`;
+
+    const pct = (estado.acertos_totais / 12) * 100;
+    document.getElementById('progress-bar').style.width = `${pct}%`;
+
+    document.getElementById('room-topic').textContent = infoFase.tema;
+    document.getElementById('room-title').textContent = infoFase.sala;
+    document.getElementById('question-id').textContent = `ID: ${questao.id}`;
+
+    digitarTextoTerminal(document.getElementById('question-text'), questao.enunciado);
+
+    const dotsContainer = document.getElementById('phase-dots');
+    dotsContainer.innerHTML = '';
+    for (let i = 0; i < infoFase.acertos_necessarios; i++) {
+        const dot = document.createElement('div');
+        dot.className = 'dot' + (i < estado.acertos_fase ? ' filled' : '');
+        dotsContainer.appendChild(dot);
+    }
+
+    const grid = document.getElementById('options-grid');
+    grid.innerHTML = '';
+    const letras = ['A', 'B', 'C', 'D'];
+    questao.alternativas.forEach((alt, idx) => {
+        const btn = document.createElement('button');
+        btn.className = 'option-btn';
+        btn.innerHTML = `<span class="option-letter">${letras[idx]}</span> <span>${alt}</span>`;
+        btn.onclick = () => verificarResposta(alt, btn);
+        grid.appendChild(btn);
+    });
+}
+
+function verificarResposta(respostaUsuario, botaoClicado) {
+    if (typingInterval) {
+        clearInterval(typingInterval);
+        document.getElementById('question-text').innerHTML = `${estado.questao_atual.enunciado}<span class="typing-cursor"></span>`;
+    }
+
+    const questao = estado.questao_atual;
+    const acertou = (respostaUsuario === questao.correta);
+
+    document.querySelectorAll('.option-btn').forEach(b => {
+        b.disabled = true;
+        if (b.textContent.trim().endsWith(questao.correta)) {
+            b.classList.add('correct-choice');
+        }
+    });
+
+    if (!acertou && botaoClicado) {
+        botaoClicado.classList.add('wrong-choice');
+    }
+
+    let mudouFase = false;
+
+    if (acertou) {
+        estado.acertos_fase++;
+        estado.acertos_totais++;
+        estado.sequencia++;
+        atualizarComboHUD();
+        dispararParticulas('#00f0ff', 28);
+
+        document.getElementById('hud-acertos').textContent = `${estado.acertos_totais} / 12`;
+        document.getElementById('progress-bar').style.width = `${(estado.acertos_totais / 12) * 100}%`;
+
+        const metaFase = CONFIG_FASES[estado.fase_atual].acertos_necessarios;
+        if (estado.acertos_fase >= metaFase) {
+            if (estado.fase_atual === 5) {
+                clearInterval(timerInterval);
+                pararMusicaFundo();
+                tocarSom('fase');
+                document.body.classList.remove('panic-mode');
+                dispararParticulas('#10b981', 120);
+                document.getElementById('hud-bar').classList.add('hidden');
+                document.getElementById('vault-map').classList.add('hidden');
+                document.getElementById('victory-stats').innerHTML = `
+                    <div><strong>12 / 12</strong><br><small>Chaves Quebradas</small></div>
+                    <div><strong>${estado.erros}</strong><br><small>Alertas Gerados</small></div>
+                    <div><strong>${document.getElementById('hud-timer').textContent}</strong><br><small>Tempo Restante</small></div>
+                `;
+                mostrarTela('screen-victory');
+                return;
+            } else {
+                estado.fase_atual++;
+                estado.acertos_fase = 0;
+                mudouFase = true;
+                exibirAnimacaoDesbloqueio(estado.fase_atual, CONFIG_FASES[estado.fase_atual].sala);
+            }
+        }
+        atualizarPainelCadeados();
+    } else {
+        estado.erros++;
+        estado.sequencia = 0;
+        atualizarComboHUD();
+        document.getElementById('hud-erros').textContent = `${estado.erros} / ${estado.max_erros}`;
+        const gameCard = document.getElementById('screen-game');
+        gameCard.classList.remove('shake');
+        void gameCard.offsetWidth;
+        gameCard.classList.add('shake');
+
+        if (estado.erros >= estado.max_erros) {
+            clearInterval(timerInterval);
+            pararMusicaFundo();
+            tocarSom('erro');
+            document.body.classList.remove('panic-mode');
+            document.getElementById('hud-bar').classList.add('hidden');
+            document.getElementById('vault-map').classList.add('hidden');
+            document.getElementById('defeat-reason').textContent = "Limite máximo de 5 alertas de segurança atingido!";
+            const lastRes = document.getElementById('defeat-last-resolution');
+            lastRes.classList.remove('hidden');
+            lastRes.innerHTML = `<strong>Resposta correta (${questao.correta}):</strong> ${questao.resolucao}`;
+            document.getElementById('defeat-stats').innerHTML = `
+                <div><strong>${estado.acertos_totais} / 12</strong><br><small>Chaves Obtidas</small></div>
+                <div><strong>${estado.erros} / 5</strong><br><small>Alertas</small></div>
+            `;
+            mostrarTela('screen-defeat');
+            return;
+        }
+    }
+
+    aguardandoProximo = true;
+    const fbBox = document.getElementById('feedback-box');
+    const fbTitle = document.getElementById('feedback-title');
+    const fbText = document.getElementById('feedback-text');
+
+    fbBox.classList.remove('hidden', 'ok', 'fail');
+
+    if (acertou) {
+        tocarSom(mudouFase ? 'fase' : 'acerto');
+        fbBox.classList.add('ok');
+        fbTitle.textContent = mudouFase
+            ? `🔓 Cadeado Destravado! Avançando para a Sala ${estado.fase_atual}...`
+            : "✅ Código Correto! Chave validada.";
+        fbText.textContent = questao.resolucao;
+    } else {
+        tocarSom('erro');
+        fbBox.classList.add('fail');
+        fbTitle.textContent = `❌ Código Incorreto! (Resposta certa: ${questao.correta})`;
+        fbText.textContent = questao.resolucao;
+    }
+}
+    </script>
+</body>
+</html>
